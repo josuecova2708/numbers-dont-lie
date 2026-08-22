@@ -1,0 +1,29 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./backend/.env
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:80"
+    restart: unless-stopped
+
+# Para desarrollo local con DB local (opcional, ya tienes una DB remota)
+# db:
+#   image: postgres:16-alpine
+#   environment:
+#     POSTGRES_USER: postgres
+#     POSTGRES_PASSWORD: postgres
+#     POSTGRES_DB: numbers_dont_lie
+#   ports:
+#     - "5432:5432"
+#   volumes:
+#     - pgdata:/var/lib/postgresql/data
+
+# volumes:
+#   pgdata:

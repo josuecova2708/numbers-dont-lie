@@ -1,0 +1,131 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── USUARIOS ────────────────────────────────────────────
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  displayName  String
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships  Membership[]
+  stats        PlayerMatchStats[]
+}
+
+// ─── GRUPOS / TORNEOS ────────────────────────────────────
+model Group {
+  id             String   @id @default(uuid())
+  name           String
+  inviteCode     String   @unique
+  recurrenceDay  Int?     // 0=Dom 1=Lun 2=Mar 3=Mie 4=Jue 5=Vie 6=Sab (null = sin recurrencia)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  teams          Team[]
+  memberships    Membership[]
+  matchDays      MatchDay[]
+}
+
+// ─── EQUIPOS ─────────────────────────────────────────────
+model Team {
+  id        String   @id @default(uuid())
+  name      String
+  color     String?  // hex color para UI ej: "#4ADE80"
+  groupId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  members   Membership[]
+  stats     PlayerMatchStats[]
+
+  @@unique([groupId, name])
+}
+
+// ─── MEMBRESÍA (Usuario <-> Grupo <-> Equipo <-> Rol) ────
+enum GroupRole {
+  ORGANIZER
+  CAPTAIN
+  PLAYER
+}
+
+model Membership {
+  id       String    @id @default(uuid())
+  userId   String
+  groupId  String
+  teamId   String?   // null = en el grupo pero sin equipo asignado aún
+  role     GroupRole @default(PLAYER)
+  joinedAt DateTime  @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  team     Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, groupId])
+}
+
+// ─── JORNADAS ────────────────────────────────────────────
+enum MatchDayStatus {
+  SCHEDULED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model MatchDay {
+  id        String         @id @default(uuid())
+  groupId   String
+  label     String         // "Jornada - Miércoles 21 de Agosto"
+  date      DateTime
+  status    MatchDayStatus @default(SCHEDULED)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  group     Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  stats     PlayerMatchStats[]
+
+  @@unique([groupId, date])
+}
+
+// ─── ESTADÍSTICAS ────────────────────────────────────────
+enum StatsContext {
+  TEAM   // Jugó con su equipo oficial
+  OTHER  // Jugó como comodín para otros
+}
+
+model PlayerMatchStats {
+  id          String       @id @default(uuid())
+  playerId    String
+  matchDayId  String
+  teamId      String?      // null cuando context = OTHER
+  context     StatsContext
+
+  // Stats serias
+  goals       Int          @default(0)
+  assists     Int          @default(0)
+
+  // Stats graciosas
+  missedGoals Int          @default(0) // Goles cantados fallados
+  ownGoals    Int          @default(0) // Autogoles
+  ballsOut    Int          @default(0) // Balones botados afuera
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  player      User         @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  matchDay    MatchDay     @relation(fields: [matchDayId], references: [id], onDelete: Cascade)
+  team        Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@unique([playerId, matchDayId, context])
+}
