@@ -118,9 +118,27 @@ export class MatchDaysService {
   }
 
   async getActiveForGroup(groupId: string) {
-    return this.prisma.matchDay.findFirst({
+    // Buscar primero una activa
+    const active = await this.prisma.matchDay.findFirst({
       where: { groupId, status: MatchDayStatus.ACTIVE },
       orderBy: { date: 'desc' },
     });
+
+    if (active) return active;
+
+    // Si no hay activa, buscar la proxima programada
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const upcoming = await this.prisma.matchDay.findFirst({
+      where: { 
+        groupId, 
+        status: MatchDayStatus.SCHEDULED,
+        date: { gte: today }
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    return upcoming;
   }
 }

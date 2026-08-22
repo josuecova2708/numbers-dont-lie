@@ -4,6 +4,7 @@ import { Card } from '../components/ui/Card';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
 import api from '../services/api';
+import { Camera } from 'lucide-react';
 
 export function ProfilePage() {
   const { user, logout } = useAuth();
@@ -63,24 +64,30 @@ export function ProfilePage() {
 
       <Card className="mb-6">
         <div className="flex flex-col items-center justify-center text-center gap-4 py-4">
-          <div 
-            onClick={handleAvatarClick}
-            className="w-32 h-32 rounded-full flex items-center justify-center text-4xl relative overflow-hidden cursor-pointer"
-            style={{ backgroundColor: '#22252F', border: '4px solid #2D313F' }}
-          >
-            {uploading ? (
-              <span className="text-sm text-gray-400">...</span>
-            ) : user?.avatarUrl ? (
-              <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-white">{user?.displayName?.[0]?.toUpperCase() || '?'}</span>
-            )}
-            {!uploading && (
-              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                <span className="text-sm font-bold text-white">Cambiar foto</span>
-              </div>
-            )}
+          <div className="relative">
+            <div 
+              onClick={handleAvatarClick}
+              className="w-32 h-32 rounded-full flex items-center justify-center text-4xl relative overflow-hidden cursor-pointer shadow-lg"
+              style={{ backgroundColor: '#22252F', border: '4px solid #2D313F' }}
+            >
+              {uploading ? (
+                <span className="text-sm text-gray-400">...</span>
+              ) : user?.avatarUrl ? (
+                <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-white">{user?.displayName?.[0]?.toUpperCase() || '?'}</span>
+              )}
+            </div>
+            
+            {/* Always visible plus/camera icon badge */}
+            <div 
+              onClick={handleAvatarClick}
+              className="absolute bottom-1 right-1 w-10 h-10 bg-green-500 rounded-full flex items-center justify-center cursor-pointer border-4 border-[#0F1117] shadow-xl hover:bg-green-400 transition-colors"
+            >
+              <Camera size={18} className="text-[#0F1117]" />
+            </div>
           </div>
+          
           <input 
             type="file" 
             ref={fileInputRef} 

@@ -76,18 +76,37 @@ export function GroupDashboard() {
 
       {/* Active matchday card */}
       {activeMatchDay ? (
-        <Card className="mb-4" style={{ border: '1px solid #4ADE80' }}>
+        <Card className="mb-4" style={{ border: `1px solid ${activeMatchDay.status === 'ACTIVE' ? '#4ADE80' : '#8B8FA3'}` }}>
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            <span className="text-xs font-bold text-green-400 uppercase tracking-wider">Jornada en Curso</span>
+            {activeMatchDay.status === 'ACTIVE' ? (
+              <>
+                <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                <span className="text-xs font-bold text-green-400 uppercase tracking-wider">Jornada en Curso</span>
+              </>
+            ) : (
+              <>
+                <Calendar size={14} className="text-gray-400" />
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Próxima Jornada</span>
+              </>
+            )}
           </div>
           <p className="text-lg font-bold text-white mb-3">{activeMatchDay.label}</p>
-          <Button
-            size="lg"
-            onClick={() => navigate(`/groups/${groupId}/match-days/${activeMatchDay.id}/stats`)}
-          >
-            ⚽ Cargar mis stats
-          </Button>
+          
+          {activeMatchDay.status === 'ACTIVE' ? (
+            <Button
+              size="lg"
+              className="w-full"
+              onClick={() => navigate(`/groups/${groupId}/match-days/${activeMatchDay.id}/stats`)}
+            >
+              ⚽ Cargar mis stats
+            </Button>
+          ) : (
+            <div className="bg-[#22252F] p-3 rounded-lg text-center border border-[#2D313F]">
+              <p className="text-sm text-gray-400">
+                Espera al día de la jornada para agregar tus stats.
+              </p>
+            </div>
+          )}
         </Card>
       ) : (
         <Card className="mb-4 text-center py-6">
