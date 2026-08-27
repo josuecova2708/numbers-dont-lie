@@ -1,7 +1,11 @@
-import { IsEnum, IsInt, IsOptional, IsUUID, Min } from 'class-validator';
+﻿import { IsEnum, IsInt, IsOptional, IsUUID, Min } from 'class-validator';
 import { StatsContext } from '@prisma/client';
 
 export class CreateStatsDto {
+  @IsOptional()
+  @IsUUID()
+  playerId?: string;
+
   @IsEnum(StatsContext)
   context: StatsContext;
 

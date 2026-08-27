@@ -3,6 +3,7 @@ import type { PlayerMatchStats } from '../types';
 import type { StatsContext } from '../types';
 
 interface CreateStatsPayload {
+  playerId?: string;
   context: StatsContext;
   teamId?: string;
   goals?: number;

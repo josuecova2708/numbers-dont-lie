@@ -118,27 +118,48 @@ export class MatchDaysService {
   }
 
   async getActiveForGroup(groupId: string) {
-    // Buscar primero una activa
+    const now = new Date();
+
+    // 1. Buscar la jornada activa mas reciente
     const active = await this.prisma.matchDay.findFirst({
       where: { groupId, status: MatchDayStatus.ACTIVE },
       orderBy: { date: 'desc' },
     });
 
-    if (active) return active;
+    if (active) {
+      const expiresAt = new Date(active.date);
+      expiresAt.setDate(expiresAt.getDate() + 1);
+      expiresAt.setHours(1, 0, 0, 0);
 
-    // Si no hay activa, buscar la proxima programada
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+      if (now < expiresAt) {
+        return active; // Aún vigente (antes de la 1 AM del día siguiente)
+      } else {
+        // Expiró. Lo marcamos como completado automáticamente.
+        await this.prisma.matchDay.update({
+          where: { id: active.id },
+          data: { status: MatchDayStatus.COMPLETED },
+        });
+      }
+    }
 
-    const upcoming = await this.prisma.matchDay.findFirst({
-      where: { 
-        groupId, 
-        status: MatchDayStatus.SCHEDULED,
-        date: { gte: today }
-      },
+    // 2. Si no hay activa, o la que había expiró, buscar la próxima SCHEDULED.
+    // Una SCHEDULED es vigente si su expiresAt (1 AM del día siguiente) aún no ha pasado.
+    const scheduled = await this.prisma.matchDay.findMany({
+      where: { groupId, status: MatchDayStatus.SCHEDULED },
       orderBy: { date: 'asc' },
+      take: 3, // Tomamos las próximas 3 por eficiencia
     });
 
-    return upcoming;
+    for (const md of scheduled) {
+      const expiresAt = new Date(md.date);
+      expiresAt.setDate(expiresAt.getDate() + 1);
+      expiresAt.setHours(1, 0, 0, 0);
+
+      if (now < expiresAt) {
+        return md; // Encontramos la próxima jornada vigente
+      }
+    }
+
+    return scheduled[0] || null; // fallback
   }
 }

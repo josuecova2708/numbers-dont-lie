@@ -17,12 +17,33 @@ export class StatsService {
     private groupsService: GroupsService,
   ) {}
 
-  async create(matchDayId: string, userId: string, dto: CreateStatsDto) {
+  async create(matchDayId: string, actorId: string, dto: CreateStatsDto) {
+    const targetUserId = dto.playerId || actorId;
+
     // Get matchDay to verify group membership
     const matchDay = await this.prisma.matchDay.findUniqueOrThrow({
       where: { id: matchDayId },
     });
-    await this.groupsService.assertMember(userId, matchDay.groupId);
+    const actorMembership = await this.groupsService.assertMember(actorId, matchDay.groupId);
+
+    // If uploading for someone else, verify permissions
+    if (targetUserId !== actorId) {
+      if (actorMembership.role === GroupRole.PLAYER) {
+        throw new ForbiddenException('No tienes permisos para registrar stats de otro jugador');
+      }
+      
+      const targetMembership = await this.prisma.membership.findUnique({
+        where: { userId_groupId: { userId: targetUserId, groupId: matchDay.groupId } },
+      });
+      
+      if (!targetMembership) {
+        throw new BadRequestException('El jugador no pertenece al grupo');
+      }
+      
+      if (actorMembership.role === GroupRole.CAPTAIN && actorMembership.teamId !== targetMembership.teamId) {
+         throw new ForbiddenException('Solo puedes registrar stats de jugadores de tu equipo');
+      }
+    }
 
     // Validate: if TEAM context, teamId is required
     if (dto.context === StatsContext.TEAM && !dto.teamId) {
@@ -32,7 +53,7 @@ export class StatsService {
     // Verify user belongs to that team when context = TEAM
     if (dto.context === StatsContext.TEAM && dto.teamId) {
       const membership = await this.prisma.membership.findUnique({
-        where: { userId_groupId: { userId, groupId: matchDay.groupId } },
+        where: { userId_groupId: { userId: targetUserId, groupId: matchDay.groupId } },
       });
       if (!membership?.teamId || membership.teamId !== dto.teamId) {
         throw new ForbiddenException('Solo puedes registrar stats de TEAM para tu propio equipo');
@@ -41,7 +62,7 @@ export class StatsService {
 
     // Check for duplicate
     const existing = await this.prisma.playerMatchStats.findUnique({
-      where: { playerId_matchDayId_context: { playerId: userId, matchDayId, context: dto.context } },
+      where: { playerId_matchDayId_context: { playerId: targetUserId, matchDayId, context: dto.context } },
     });
     if (existing) {
       throw new ConflictException(`Ya tienes estadísticas registradas en contexto ${dto.context} para esta jornada`);
@@ -49,7 +70,7 @@ export class StatsService {
 
     return this.prisma.playerMatchStats.create({
       data: {
-        playerId: userId,
+        playerId: targetUserId,
         matchDayId,
         context: dto.context,
         teamId: dto.context === StatsContext.TEAM ? dto.teamId : null,

@@ -26,6 +26,7 @@ export interface Group {
   recurrenceDay?: number;
   createdAt: string;
   teams: Team[];
+  memberships?: Membership[];
   myRole?: GroupRole;
   myTeamId?: string;
 }

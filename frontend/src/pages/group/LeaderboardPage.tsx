@@ -34,7 +34,7 @@ export function LeaderboardPage() {
   const TABS: { key: Tab; label: string; icon: string }[] = [
     { key: 'players', label: 'Jugadores', icon: '⚽' },
     { key: 'teams', label: 'Equipos', icon: '🛡️' },
-    { key: 'funny', label: 'El Bulto 😂', icon: '🎭' },
+    { key: 'funny', label: 'Aura Negativa', icon: '🎭' },
   ];
 
   const getRankBadge = (index: number) => {
