@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { statsService } from '../../services/stats.service';
@@ -79,7 +79,7 @@ export function StatsFormPage() {
   }, [selectedPlayerId, allStats]);
 
   const handleSave = async () => {
-    if (!matchDayId || !group || !selectedPlayerId) return;
+    if (!groupId || !matchDayId || !group || !selectedPlayerId) return;
     setIsSaving(true);
     try {
       const myTeamId = group.myTeamId;
