@@ -103,7 +103,7 @@ export function StatsFormPage() {
         }
       }
       toast.success('¡Stats guardadas! 🏆');
-      navigate(/groups/ + groupId + /match-days/ + matchDayId);
+      navigate(`/groups/${groupId}/match-days/${matchDayId}`);
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Error al guardar');
     } finally {

@@ -63,12 +63,10 @@ export function MatchDayDetail() {
       </div>
 
       {/* My stats CTA */}
-      {matchDay.status === 'ACTIVE' && (
-        <Button size="lg" className="mb-5"
-          onClick={() => navigate(`/groups/${groupId}/match-days/${matchDayId}/stats`)}>
-          ⚽ {(matchDay.stats || []).some(s => s.playerId === user?.id) ? 'Editar mis stats' : 'Cargar mis stats'}
-        </Button>
-      )}
+      <Button size="lg" className="mb-5 w-full"
+        onClick={() => navigate(`/groups/${groupId}/match-days/${matchDayId}/stats`)}>
+        ⚽ {(matchDay.stats || []).some(s => s.playerId === user?.id) ? 'Editar mis stats' : 'Cargar mis stats'}
+      </Button>
 
       {/* All stats by player */}
       <div className="flex flex-col gap-3">

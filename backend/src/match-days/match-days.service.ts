@@ -120,7 +120,7 @@ export class MatchDaysService {
   async getActiveForGroup(groupId: string) {
     const now = new Date();
 
-    // 1. Buscar la jornada activa mas reciente
+    // 1. Buscar la jornada activa más reciente
     const active = await this.prisma.matchDay.findFirst({
       where: { groupId, status: MatchDayStatus.ACTIVE },
       orderBy: { date: 'desc' },
@@ -143,23 +143,51 @@ export class MatchDaysService {
     }
 
     // 2. Si no hay activa, o la que había expiró, buscar la próxima SCHEDULED.
-    // Una SCHEDULED es vigente si su expiresAt (1 AM del día siguiente) aún no ha pasado.
-    const scheduled = await this.prisma.matchDay.findMany({
-      where: { groupId, status: MatchDayStatus.SCHEDULED },
+    // Usamos un cutoff de 36 horas atrás para evitar seleccionar jornadas viejas de semanas pasadas
+    const cutoff = new Date(now.getTime() - 36 * 60 * 60 * 1000);
+
+    const upcomingList = await this.prisma.matchDay.findMany({
+      where: {
+        groupId,
+        status: MatchDayStatus.SCHEDULED,
+        date: { gte: cutoff },
+      },
       orderBy: { date: 'asc' },
-      take: 3, // Tomamos las próximas 3 por eficiencia
+      take: 5,
     });
 
-    for (const md of scheduled) {
+    for (const md of upcomingList) {
       const expiresAt = new Date(md.date);
       expiresAt.setDate(expiresAt.getDate() + 1);
       expiresAt.setHours(1, 0, 0, 0);
 
       if (now < expiresAt) {
-        return md; // Encontramos la próxima jornada vigente
+        return md; // Jornada vigente o próxima
+      } else {
+        // Ya pasó su 1 AM del día siguiente, marcar como completada
+        await this.prisma.matchDay.update({
+          where: { id: md.id },
+          data: { status: MatchDayStatus.COMPLETED },
+        });
       }
     }
 
-    return scheduled[0] || null; // fallback
+    // Si no encontramos en el rango cercano, buscar la próxima futura programada
+    const nextFuture = await this.prisma.matchDay.findFirst({
+      where: {
+        groupId,
+        status: MatchDayStatus.SCHEDULED,
+        date: { gte: now },
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    if (nextFuture) return nextFuture;
+
+    // Fallback: la última jornada registrada de cualquier estado
+    return this.prisma.matchDay.findFirst({
+      where: { groupId },
+      orderBy: { date: 'desc' },
+    });
   }
 }
