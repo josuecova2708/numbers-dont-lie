@@ -7,7 +7,8 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateGroupDto, UpdateGroupDto, JoinGroupDto, CustomizeInviteCodeDto } from './groups.dto';
-import { GroupRole } from '@prisma/client';
+import { GroupRole, MatchDayStatus } from '@prisma/client';
+import { formatMatchDayLabel, localNoon, missingRecurringDates } from '../match-days/match-day-dates';
 
 @Injectable()
 export class GroupsService {
@@ -52,37 +53,18 @@ export class GroupsService {
     });
 
     // Auto-generate upcoming match days if recurrence is set
+    // (las siguientes se crean solas al consultar jornadas, ver MatchDaysService.ensureRecurring)
     if (dto.recurrenceDay !== undefined && dto.recurrenceDay !== null) {
-      const targetDay = dto.recurrenceDay;
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-      const monthNames = [
-        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-      ];
-
-      for (let week = 0; week < 4; week++) {
-        const d = new Date(today);
-        const currentDay = d.getDay();
-        let daysUntilTarget = (targetDay - currentDay + 7) % 7;
-        if (daysUntilTarget === 0 && week === 0) daysUntilTarget = 0;
-        d.setDate(d.getDate() + daysUntilTarget + week * 7);
-        d.setHours(12, 0, 0, 0);
-
-        const label = `Jornada - ${dayNames[d.getDay()]} ${d.getDate()} de ${monthNames[d.getMonth()]}`;
-        try {
-          await this.prisma.matchDay.create({
-            data: {
-              groupId: group.id,
-              label,
-              date: d,
-              status: week === 0 ? 'ACTIVE' : 'SCHEDULED', // First one active!
-            },
-          });
-        } catch {}
-      }
+      const keys = missingRecurringDates([], dto.recurrenceDay);
+      await this.prisma.matchDay.createMany({
+        data: keys.map((key) => ({
+          groupId: group.id,
+          label: formatMatchDayLabel(key),
+          date: localNoon(key),
+          status: MatchDayStatus.SCHEDULED,
+        })),
+        skipDuplicates: true,
+      });
     }
 
     return {

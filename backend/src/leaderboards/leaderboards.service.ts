@@ -55,14 +55,14 @@ export class LeaderboardsService {
     return enriched;
   }
 
-  async getTeamStandings(groupId: string, userId: string) {
+  async getTeamStandings(groupId: string, userId: string, matchDayId?: string) {
     await this.groupsService.assertMember(userId, groupId);
 
     // Team stats only count TEAM context
     const stats = await this.prisma.playerMatchStats.groupBy({
       by: ['teamId'],
       where: {
-        matchDay: { groupId },
+        matchDay: matchDayId ? { groupId, id: matchDayId } : { groupId },
         context: 'TEAM',
         teamId: { not: null },
       },

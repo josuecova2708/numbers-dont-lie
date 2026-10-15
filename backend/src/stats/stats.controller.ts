@@ -1,6 +1,6 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { StatsService } from './stats.service';
-import { CreateStatsDto, UpdateStatsDto } from './stats.dto';
+import { CreateStatsDto, SaveDayStatsDto, UpdateStatsDto } from './stats.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @UseGuards(JwtAuthGuard)
@@ -21,6 +21,17 @@ export class StatsController {
   @Get('me')
   getMyStats(@Param('matchDayId') matchDayId: string, @Request() req: any) {
     return this.statsService.getMyStats(matchDayId, req.user.sub);
+  }
+
+  /** Guarda los totales de un jugador en esta jornada (reemplaza, no suma). */
+  @Put('players/:playerId')
+  saveDay(
+    @Param('matchDayId') matchDayId: string,
+    @Param('playerId') playerId: string,
+    @Body() dto: SaveDayStatsDto,
+    @Request() req: any,
+  ) {
+    return this.statsService.saveDay(matchDayId, playerId, req.user.sub, dto);
   }
 
   @Patch(':statId')

@@ -9,6 +9,10 @@ import { useAuth } from '../../context/AuthContext';
 import { groupsService } from '../../services/groups.service';
 import type { GroupRole } from '../../types';
 import { Pencil } from 'lucide-react';
+import { STAT_META } from '../../constants/stats';
+import type { StatField } from '../../constants/stats';
+
+const COLUMNS: StatField[] = ['goals', 'assists', 'missedGoals', 'ownGoals', 'ballsOut'];
 
 export function MatchDayDetail() {
   const { groupId, matchDayId } = useParams<{ groupId: string; matchDayId: string }>();
@@ -16,6 +20,7 @@ export function MatchDayDetail() {
   const navigate = useNavigate();
   const [matchDay, setMatchDay] = useState<(MatchDay & { stats: PlayerMatchStats[] }) | null>(null);
   const [myRole, setMyRole] = useState<GroupRole | null>(null);
+  const [myTeamId, setMyTeamId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -26,6 +31,7 @@ export function MatchDayDetail() {
     ]).then(([md, g]) => {
       setMatchDay(md);
       setMyRole(g.myRole ?? null);
+      setMyTeamId(g.myTeamId ?? null);
     }).catch(console.error)
       .finally(() => setIsLoading(false));
   }, [groupId, matchDayId]);
@@ -39,7 +45,10 @@ export function MatchDayDetail() {
   }
   if (!matchDay) return null;
 
-  const isCapOrOrg = myRole === 'ORGANIZER' || myRole === 'CAPTAIN';
+  // Mismo criterio que el backend: organizador a todos, capitán a su equipo
+  const canEdit = (pStats: PlayerMatchStats[]) =>
+    myRole === 'ORGANIZER' ||
+    (myRole === 'CAPTAIN' && !!myTeamId && pStats.some((s) => s.context === 'TEAM' && s.teamId === myTeamId));
 
   // Group stats by player
   const byPlayer: Record<string, PlayerMatchStats[]> = {};
@@ -63,10 +72,16 @@ export function MatchDayDetail() {
       </div>
 
       {/* My stats CTA */}
-      <Button size="lg" className="mb-5 w-full"
-        onClick={() => navigate(`/groups/${groupId}/match-days/${matchDayId}/stats`)}>
-        ⚽ {(matchDay.stats || []).some(s => s.playerId === user?.id) ? 'Editar mis stats' : 'Cargar mis stats'}
-      </Button>
+      {matchDay.acceptsStats ? (
+        <Button size="lg" className="mb-5 w-full"
+          onClick={() => navigate(`/groups/${groupId}/match-days/${matchDayId}/stats`)}>
+          ⚽ {(matchDay.stats || []).some(s => s.playerId === user?.id) ? 'Editar mis stats de esta jornada' : 'Cargar mis stats'}
+        </Button>
+      ) : (
+        <p className="mb-5 text-sm text-center" style={{ color: '#8B8FA3' }}>
+          {matchDay.status === 'CANCELLED' ? 'Jornada cancelada' : 'Esta jornada todavía no se ha jugado'}
+        </p>
+      )}
 
       {/* All stats by player */}
       <div className="flex flex-col gap-3">
@@ -79,9 +94,9 @@ export function MatchDayDetail() {
             <Card key={pid}>
               <div className="flex items-center justify-between mb-3">
                 <p className="font-bold text-white">{playerName}</p>
-                {isCapOrOrg && (
+                {matchDay.acceptsStats && pid !== user?.id && canEdit(pStats) && (
                   <button
-                    onClick={() => navigate(`/groups/${groupId}/match-days/${matchDayId}/stats/${pid}/edit`)}
+                    onClick={() => navigate(`/groups/${groupId}/match-days/${matchDayId}/stats?player=${pid}`)}
                     className="p-1.5 rounded-lg transition-all"
                     style={{ backgroundColor: '#22252F' }}
                   >
@@ -91,27 +106,24 @@ export function MatchDayDetail() {
               </div>
 
               {/* Stats table */}
-              <div className="grid grid-cols-3 gap-2 text-center text-xs mb-2" style={{ color: '#8B8FA3' }}>
+              <div className="grid grid-cols-6 gap-1 text-center text-xs mb-2" style={{ color: '#8B8FA3' }}>
                 <div></div>
-                <div className="font-semibold text-green-400">⚽ Goles</div>
-                <div className="font-semibold text-blue-400">👟 Asist.</div>
+                {COLUMNS.map((f) => (
+                  <div key={f} title={STAT_META[f].label}>{STAT_META[f].emoji}</div>
+                ))}
               </div>
-              {teamStat && (
-                <div className="grid grid-cols-3 gap-2 text-center text-sm mb-1.5">
-                  <div className="text-left" style={{ color: '#8B8FA3' }}>
-                    {teamStat.team?.name || 'Equipo'}
+              {[teamStat, otherStat].filter((s): s is PlayerMatchStats => !!s).map((s) => (
+                <div key={s.id} className="grid grid-cols-6 gap-1 text-center text-sm mb-1.5">
+                  <div className="text-left text-xs truncate" style={{ color: '#8B8FA3' }}>
+                    {s.context === 'TEAM' ? s.team?.name || 'Equipo' : 'Comodín'}
                   </div>
-                  <div className="font-bold text-white">{teamStat.goals}</div>
-                  <div className="font-bold text-white">{teamStat.assists}</div>
+                  {COLUMNS.map((f) => (
+                    <div key={f} className={`font-bold ${f === 'goals' || f === 'assists' ? 'text-white' : 'text-red-300'}`}>
+                      {s[f]}
+                    </div>
+                  ))}
                 </div>
-              )}
-              {otherStat && (
-                <div className="grid grid-cols-3 gap-2 text-center text-sm">
-                  <div className="text-left" style={{ color: '#8B8FA3' }}>Otros</div>
-                  <div className="font-bold text-white">{otherStat.goals}</div>
-                  <div className="font-bold text-white">{otherStat.assists}</div>
-                </div>
-              )}
+              ))}
             </Card>
           );
         })}

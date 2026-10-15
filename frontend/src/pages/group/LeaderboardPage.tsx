@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { leaderboardService } from '../../services/leaderboard.service';
-import type { PlayerRankingEntry, TeamStandingEntry, FunnyEntry } from '../../types';
+import { matchDaysService } from '../../services/matchDays.service';
+import type { PlayerRankingEntry, TeamStandingEntry, FunnyEntry, MatchDay } from '../../types';
 import { Card } from '../../components/ui/Card';
+import { STAT_META } from '../../constants/stats';
 
 type Tab = 'players' | 'teams' | 'funny';
 
@@ -13,14 +15,25 @@ export function LeaderboardPage() {
   const [teams, setTeams] = useState<TeamStandingEntry[]>([]);
   const [funny, setFunny] = useState<FunnyEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [matchDays, setMatchDays] = useState<MatchDay[]>([]);
+  const [matchDayId, setMatchDayId] = useState(''); // '' = todo el torneo
+
+  useEffect(() => {
+    if (!groupId) return;
+    matchDaysService
+      .getAll(groupId)
+      .then((mds) => setMatchDays(mds.filter((md) => md.acceptsStats)))
+      .catch(console.error);
+  }, [groupId]);
 
   useEffect(() => {
     if (!groupId) return;
     setIsLoading(true);
+    const filter = matchDayId || undefined;
     Promise.all([
-      leaderboardService.getPlayerRanking(groupId),
-      leaderboardService.getTeamStandings(groupId),
-      leaderboardService.getFunnyLeaderboard(groupId),
+      leaderboardService.getPlayerRanking(groupId, filter),
+      leaderboardService.getTeamStandings(groupId, filter),
+      leaderboardService.getFunnyLeaderboard(groupId, filter),
     ])
       .then(([p, t, f]) => {
         setPlayers(p);
@@ -29,7 +42,7 @@ export function LeaderboardPage() {
       })
       .catch(console.error)
       .finally(() => setIsLoading(false));
-  }, [groupId]);
+  }, [groupId, matchDayId]);
 
   const TABS: { key: Tab; label: string; icon: string }[] = [
     { key: 'players', label: 'Jugadores', icon: '⚽' },
@@ -52,9 +65,22 @@ export function LeaderboardPage() {
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
             <span>🏆</span> Tabla de Posiciones
           </h1>
-          <p className="text-xs text-gray-400 mt-0.5">Estadísticas acumuladas del torneo</p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {matchDayId ? 'Solo la jornada seleccionada' : 'Suma de todas las jornadas'}
+          </p>
         </div>
       </div>
+
+      <select
+        value={matchDayId}
+        onChange={(e) => setMatchDayId(e.target.value)}
+        className="w-full mb-4 bg-[#1A1D26] text-white border border-[#2D313F] rounded-lg p-3 text-sm focus:outline-none focus:border-green-400"
+      >
+        <option value="">Todo el torneo</option>
+        {matchDays.map((md) => (
+          <option key={md.id} value={md.id}>{md.label}</option>
+        ))}
+      </select>
 
       {/* Tabs */}
       <div className="flex gap-2 mb-5">
@@ -100,7 +126,7 @@ export function LeaderboardPage() {
                     </div>
                     <div className="text-right">
                       <span className="text-2xl font-black text-green-400">{players[0].goals}</span>
-                      <p className="text-xs text-gray-400">Goles totales</p>
+                      <p className="text-xs text-gray-400">{matchDayId ? 'Goles en la jornada' : 'Goles totales'}</p>
                     </div>
                   </div>
                 </Card>
@@ -205,18 +231,12 @@ export function LeaderboardPage() {
             <div className="flex flex-col gap-3">
               {/* Legend */}
               <div className="grid grid-cols-3 gap-2 text-center text-xs text-gray-400">
-                <div className="p-2 rounded-xl bg-[#1A1D26] border border-[#2A2D37]">
-                  <span className="text-base block mb-0.5">❌</span>
-                  <span>Goles Cantados</span>
-                </div>
-                <div className="p-2 rounded-xl bg-[#1A1D26] border border-[#2A2D37]">
-                  <span className="text-base block mb-0.5">🤦</span>
-                  <span>Autogoles</span>
-                </div>
-                <div className="p-2 rounded-xl bg-[#1A1D26] border border-[#2A2D37]">
-                  <span className="text-base block mb-0.5">🚀</span>
-                  <span>Balones Botados</span>
-                </div>
+                {(['missedGoals', 'ownGoals', 'ballsOut'] as const).map((f) => (
+                  <div key={f} className="p-2 rounded-xl bg-[#1A1D26] border border-[#2A2D37]">
+                    <span className="text-base block mb-0.5">{STAT_META[f].emoji}</span>
+                    <span>{STAT_META[f].label}</span>
+                  </div>
+                ))}
               </div>
 
               <Card>

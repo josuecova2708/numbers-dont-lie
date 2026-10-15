@@ -1,6 +1,7 @@
 import api from './api';
 import type { PlayerMatchStats } from '../types';
 import type { StatsContext } from '../types';
+import type { StatsBlock } from '../constants/stats';
 
 interface CreateStatsPayload {
   playerId?: string;
@@ -39,6 +40,16 @@ export const statsService = {
 
   update: async (matchDayId: string, statId: string, payload: UpdateStatsPayload): Promise<PlayerMatchStats> => {
     const { data } = await api.patch<PlayerMatchStats>(`/match-days/${matchDayId}/stats/${statId}`, payload);
+    return data;
+  },
+
+  /** Totales del jugador en esa jornada (reemplaza). `null` = no jugó en ese contexto (se borra); omitido = no se toca. */
+  saveDay: async (
+    matchDayId: string,
+    playerId: string,
+    payload: { team?: StatsBlock | null; other?: StatsBlock | null },
+  ): Promise<PlayerMatchStats[]> => {
+    const { data } = await api.put<PlayerMatchStats[]>(`/match-days/${matchDayId}/stats/players/${playerId}`, payload);
     return data;
   },
 

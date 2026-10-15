@@ -20,7 +20,6 @@ import { GroupDashboard } from './pages/group/GroupDashboard'
 import { MatchDaysPage } from './pages/group/MatchDaysPage'
 import { MatchDayDetail } from './pages/group/MatchDayDetail'
 import { StatsFormPage } from './pages/group/StatsFormPage'
-import { EditStatsPage } from './pages/group/EditStatsPage'
 import { LeaderboardPage } from './pages/group/LeaderboardPage'
 import { TeamsPage } from './pages/group/TeamsPage'
 import { GroupSettingsPage } from './pages/group/GroupSettingsPage'
@@ -59,7 +58,6 @@ function App() {
               <Route path="match-days" element={<MatchDaysPage />} />
               <Route path="match-days/:matchDayId" element={<MatchDayDetail />} />
               <Route path="match-days/:matchDayId/stats" element={<StatsFormPage />} />
-              <Route path="match-days/:matchDayId/stats/:statId/edit" element={<EditStatsPage />} />
               <Route path="leaderboard" element={<LeaderboardPage />} />
               <Route path="teams" element={<TeamsPage />} />
               <Route path="settings" element={<GroupSettingsPage />} />

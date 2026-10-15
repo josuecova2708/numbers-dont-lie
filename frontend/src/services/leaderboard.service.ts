@@ -8,8 +8,9 @@ export const leaderboardService = {
     return data;
   },
 
-  getTeamStandings: async (groupId: string): Promise<TeamStandingEntry[]> => {
-    const { data } = await api.get<TeamStandingEntry[]>(`/groups/${groupId}/leaderboard/teams`);
+  getTeamStandings: async (groupId: string, matchDayId?: string): Promise<TeamStandingEntry[]> => {
+    const params = matchDayId ? `?matchDayId=${matchDayId}` : '';
+    const { data } = await api.get<TeamStandingEntry[]>(`/groups/${groupId}/leaderboard/teams${params}`);
     return data;
   },
 

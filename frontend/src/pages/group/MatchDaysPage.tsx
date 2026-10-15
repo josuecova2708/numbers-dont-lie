@@ -34,7 +34,7 @@ export function MatchDaysPage() {
   // Manual create modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newLabel, setNewLabel] = useState('');
-  const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newDate, setNewDate] = useState(new Date().toLocaleDateString('en-CA'));
   const [isCreating, setIsCreating] = useState(false);
 
   const load = () => {
@@ -71,7 +71,7 @@ export function MatchDaysPage() {
     if (!groupId || !newLabel.trim()) return;
     setIsCreating(true);
     try {
-      await matchDaysService.create(groupId, newLabel.trim(), new Date(newDate).toISOString());
+      await matchDaysService.create(groupId, newLabel.trim(), newDate);
       toast.success('Jornada creada con éxito');
       setNewLabel('');
       setShowCreateModal(false);

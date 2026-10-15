@@ -37,6 +37,7 @@ export function GroupDashboard() {
   }
 
   const isOrganizer = group.myRole === 'ORGANIZER';
+  const isToday = activeMatchDay?.dateKey === new Date().toLocaleDateString('en-CA');
 
   return (
     <div className="px-4 py-6 max-w-lg mx-auto" style={{ minHeight: '100vh', backgroundColor: '#0F1117' }}>
@@ -81,22 +82,34 @@ export function GroupDashboard() {
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
               <span className="text-xs font-bold text-green-400 uppercase tracking-wider">
-                {activeMatchDay.status === 'ACTIVE' ? 'Jornada en Curso' : 'Jornada Actual'}
+                {isToday ? 'Jornada de hoy' : activeMatchDay.acceptsStats ? 'Última jornada' : 'Próxima jornada'}
               </span>
             </div>
-            <Badge color={activeMatchDay.status === 'ACTIVE' ? 'green' : activeMatchDay.status === 'COMPLETED' ? 'gray' : 'blue'}>
-              {activeMatchDay.status === 'ACTIVE' ? 'En Curso' : activeMatchDay.status === 'COMPLETED' ? 'Finalizada' : 'Programada'}
+            <Badge color={isToday ? 'green' : activeMatchDay.acceptsStats ? 'gray' : 'blue'}>
+              {isToday ? 'Hoy' : activeMatchDay.acceptsStats ? 'Jugada' : 'Programada'}
             </Badge>
           </div>
           <p className="text-lg font-bold text-white mb-3">{activeMatchDay.label}</p>
           
-          <Button
-            size="lg"
-            className="w-full"
-            onClick={() => navigate(`/groups/${groupId}/match-days/${activeMatchDay.id}/stats`)}
+          {activeMatchDay.acceptsStats ? (
+            <Button
+              size="lg"
+              className="w-full"
+              onClick={() => navigate(`/groups/${groupId}/match-days/${activeMatchDay.id}/stats`)}
+            >
+              ⚽ Cargar mis stats de esta jornada
+            </Button>
+          ) : (
+            <p className="text-xs" style={{ color: '#8B8FA3' }}>
+              Podrás cargar tus stats desde el día del partido.
+            </p>
+          )}
+          <button
+            onClick={() => navigate(`/groups/${groupId}/match-days`)}
+            className="w-full text-xs mt-3 font-semibold text-gray-400 hover:text-white"
           >
-            ⚽ Cargar mis stats
-          </Button>
+            Ver todas las jornadas →
+          </button>
         </Card>
       ) : (
         <Card className="mb-4 text-center py-6">

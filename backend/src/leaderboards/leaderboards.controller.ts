@@ -17,8 +17,12 @@ export class LeaderboardsController {
   }
 
   @Get('teams')
-  getTeamStandings(@Param('groupId') groupId: string, @Request() req: any) {
-    return this.leaderboardsService.getTeamStandings(groupId, req.user.sub);
+  getTeamStandings(
+    @Param('groupId') groupId: string,
+    @Query('matchDayId') matchDayId: string,
+    @Request() req: any,
+  ) {
+    return this.leaderboardsService.getTeamStandings(groupId, req.user.sub, matchDayId);
   }
 
   @Get('funny')

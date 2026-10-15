@@ -48,6 +48,8 @@ export interface MatchDay {
   date: string;
   status: MatchDayStatus;
   createdAt: string;
+  dateKey: string;        // YYYY-MM-DD en la zona del grupo
+  acceptsStats: boolean;  // ya se jugó y no está cancelada
   _count?: { stats: number };
 }
 
@@ -62,6 +64,7 @@ export interface PlayerMatchStats {
   missedGoals: number;
   ownGoals: number;
   ballsOut: number;
+  updatedAt?: string;
   player?: Pick<User, 'id' | 'displayName' | 'avatarUrl'>;
   team?: Pick<Team, 'id' | 'name' | 'color'>;
 }

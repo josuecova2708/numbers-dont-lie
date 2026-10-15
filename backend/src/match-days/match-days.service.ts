@@ -1,14 +1,18 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { GroupsService } from '../groups/groups.service';
 import { CreateMatchDayDto, UpdateMatchDayDto, GenerateRecurringDto } from './match-days.dto';
-import { MatchDayStatus } from '@prisma/client';
+import { MatchDay, MatchDayStatus } from '@prisma/client';
+import {
+  acceptsStats,
+  formatMatchDayLabel,
+  localDateKey,
+  localNoon,
+  missingRecurringDates,
+  pickCurrentMatchDay,
+} from './match-day-dates';
 
-const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-const MONTH_NAMES = [
-  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-];
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 @Injectable()
 export class MatchDaysService {
@@ -17,34 +21,68 @@ export class MatchDaysService {
     private groupsService: GroupsService,
   ) {}
 
-  private formatLabel(date: Date): string {
-    const day = DAY_NAMES[date.getDay()];
-    const num = date.getDate();
-    const month = MONTH_NAMES[date.getMonth()];
-    return `Jornada - ${day} ${num} de ${month}`;
+  /** Agrega campos calculados que el frontend necesita para no razonar con zonas horarias. */
+  private withMeta<T extends MatchDay>(md: T) {
+    return { ...md, dateKey: localDateKey(md.date), acceptsStats: acceptsStats(md) };
+  }
+
+  /** Crea las jornadas recurrentes que falten (pasadas recientes y próximas 4 semanas). */
+  async ensureRecurring(groupId: string, weeksAhead = 4) {
+    const group = await this.prisma.group.findUniqueOrThrow({ where: { id: groupId } });
+    if (group.recurrenceDay === null || group.recurrenceDay === undefined) return;
+
+    const existing = await this.prisma.matchDay.findMany({ where: { groupId }, select: { date: true } });
+    const keys = missingRecurringDates(
+      existing.map((m) => m.date),
+      group.recurrenceDay,
+      new Date(),
+      undefined,
+      weeksAhead,
+    );
+    if (keys.length === 0) return;
+
+    await this.prisma.matchDay.createMany({
+      data: keys.map((key) => ({
+        groupId,
+        label: formatMatchDayLabel(key),
+        date: localNoon(key),
+        status: MatchDayStatus.SCHEDULED,
+      })),
+      skipDuplicates: true,
+    });
   }
 
   async create(groupId: string, userId: string, dto: CreateMatchDayDto) {
     await this.groupsService.assertOrganizer(userId, groupId);
-    return this.prisma.matchDay.create({
+
+    const key = DATE_ONLY.test(dto.date) ? dto.date : localDateKey(new Date(dto.date));
+    const existing = await this.prisma.matchDay.findMany({ where: { groupId }, select: { date: true } });
+    if (existing.some((m) => localDateKey(m.date) === key)) {
+      throw new ConflictException('Ya existe una jornada para ese día');
+    }
+
+    const md = await this.prisma.matchDay.create({
       data: {
         groupId,
         label: dto.label,
-        date: new Date(dto.date),
+        date: localNoon(key),
         status: dto.status || MatchDayStatus.SCHEDULED,
       },
     });
+    return this.withMeta(md);
   }
 
   async findAll(groupId: string, userId: string) {
     await this.groupsService.assertMember(userId, groupId);
-    return this.prisma.matchDay.findMany({
+    await this.ensureRecurring(groupId);
+    const mds = await this.prisma.matchDay.findMany({
       where: { groupId },
       orderBy: { date: 'desc' },
       include: {
         _count: { select: { stats: true } },
       },
     });
+    return mds.map((md) => this.withMeta(md));
   }
 
   async findOne(groupId: string, matchDayId: string, userId: string) {
@@ -62,15 +100,18 @@ export class MatchDaysService {
       },
     });
     if (!md || md.groupId !== groupId) throw new NotFoundException('Jornada no encontrada');
-    return md;
+    return this.withMeta(md);
   }
 
   async update(groupId: string, matchDayId: string, userId: string, dto: UpdateMatchDayDto) {
     await this.groupsService.assertOrganizer(userId, groupId);
-    return this.prisma.matchDay.update({
+    const md = await this.prisma.matchDay.findUnique({ where: { id: matchDayId } });
+    if (!md || md.groupId !== groupId) throw new NotFoundException('Jornada no encontrada');
+    const updated = await this.prisma.matchDay.update({
       where: { id: matchDayId },
       data: dto,
     });
+    return this.withMeta(updated);
   }
 
   async generateRecurring(groupId: string, userId: string, dto: GenerateRecurringDto) {
@@ -81,113 +122,20 @@ export class MatchDaysService {
       throw new BadRequestException('El grupo no tiene un día de recurrencia configurado');
     }
 
-    const targetDay = group.recurrenceDay; // 0-6
-    const dates: Date[] = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    for (let week = 0; week < dto.weeksAhead; week++) {
-      const d = new Date(today);
-      const currentDay = d.getDay();
-      let daysUntilTarget = (targetDay - currentDay + 7) % 7;
-      if (daysUntilTarget === 0 && week === 0) daysUntilTarget = 0;
-      d.setDate(d.getDate() + daysUntilTarget + week * 7);
-      d.setHours(12, 0, 0, 0);
-      dates.push(d);
-    }
-
-    // Upsert to avoid duplicates
-    const created: any[] = [];
-    for (const date of dates) {
-      try {
-        const md = await this.prisma.matchDay.upsert({
-          where: { groupId_date: { groupId, date } },
-          create: {
-            groupId,
-            label: this.formatLabel(date),
-            date,
-            status: MatchDayStatus.SCHEDULED,
-          },
-          update: {}, // Don't overwrite existing
-        });
-        created.push(md);
-      } catch {}
-    }
-
-    return created;
+    await this.ensureRecurring(groupId, dto.weeksAhead);
+    const mds = await this.prisma.matchDay.findMany({
+      where: { groupId, date: { gte: localNoon(localDateKey(new Date())) } },
+      orderBy: { date: 'asc' },
+    });
+    return mds.map((md) => this.withMeta(md));
   }
 
-  async getActiveForGroup(groupId: string) {
-    const now = new Date();
-
-    // 1. Buscar la jornada activa más reciente
-    const active = await this.prisma.matchDay.findFirst({
-      where: { groupId, status: MatchDayStatus.ACTIVE },
-      orderBy: { date: 'desc' },
-    });
-
-    if (active) {
-      const expiresAt = new Date(active.date);
-      expiresAt.setDate(expiresAt.getDate() + 1);
-      expiresAt.setHours(1, 0, 0, 0);
-
-      if (now < expiresAt) {
-        return active; // Aún vigente (antes de la 1 AM del día siguiente)
-      } else {
-        // Expiró. Lo marcamos como completado automáticamente.
-        await this.prisma.matchDay.update({
-          where: { id: active.id },
-          data: { status: MatchDayStatus.COMPLETED },
-        });
-      }
-    }
-
-    // 2. Si no hay activa, o la que había expiró, buscar la próxima SCHEDULED.
-    // Usamos un cutoff de 36 horas atrás para evitar seleccionar jornadas viejas de semanas pasadas
-    const cutoff = new Date(now.getTime() - 36 * 60 * 60 * 1000);
-
-    const upcomingList = await this.prisma.matchDay.findMany({
-      where: {
-        groupId,
-        status: MatchDayStatus.SCHEDULED,
-        date: { gte: cutoff },
-      },
-      orderBy: { date: 'asc' },
-      take: 5,
-    });
-
-    for (const md of upcomingList) {
-      const expiresAt = new Date(md.date);
-      expiresAt.setDate(expiresAt.getDate() + 1);
-      expiresAt.setHours(1, 0, 0, 0);
-
-      if (now < expiresAt) {
-        return md; // Jornada vigente o próxima
-      } else {
-        // Ya pasó su 1 AM del día siguiente, marcar como completada
-        await this.prisma.matchDay.update({
-          where: { id: md.id },
-          data: { status: MatchDayStatus.COMPLETED },
-        });
-      }
-    }
-
-    // Si no encontramos en el rango cercano, buscar la próxima futura programada
-    const nextFuture = await this.prisma.matchDay.findFirst({
-      where: {
-        groupId,
-        status: MatchDayStatus.SCHEDULED,
-        date: { gte: now },
-      },
-      orderBy: { date: 'asc' },
-    });
-
-    if (nextFuture) return nextFuture;
-
-    // Fallback: la última jornada registrada de cualquier estado
-    return this.prisma.matchDay.findFirst({
-      where: { groupId },
-      orderBy: { date: 'desc' },
-    });
+  /** Jornada para la que se cargan stats por defecto. No cambia estados ni vence. */
+  async getActiveForGroup(groupId: string, userId: string) {
+    await this.groupsService.assertMember(userId, groupId);
+    await this.ensureRecurring(groupId);
+    const mds = await this.prisma.matchDay.findMany({ where: { groupId } });
+    const current = pickCurrentMatchDay(mds);
+    return current ? this.withMeta(current) : null;
   }
 }

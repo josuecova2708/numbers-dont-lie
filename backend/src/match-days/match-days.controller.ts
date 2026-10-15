@@ -19,8 +19,8 @@ export class MatchDaysController {
   }
 
   @Get('active')
-  getActive(@Param('groupId') groupId: string) {
-    return this.matchDaysService.getActiveForGroup(groupId);
+  getActive(@Param('groupId') groupId: string, @Request() req: any) {
+    return this.matchDaysService.getActiveForGroup(groupId, req.user.sub);
   }
 
   @Get(':matchDayId')

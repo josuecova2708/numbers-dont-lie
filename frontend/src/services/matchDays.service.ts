@@ -2,6 +2,7 @@ import api from './api';
 import type { MatchDay } from '../types';
 
 export const matchDaysService = {
+  /** `date` en formato YYYY-MM-DD (día calendario). */
   create: async (groupId: string, label: string, date: string): Promise<MatchDay> => {
     const { data } = await api.post<MatchDay>(`/groups/${groupId}/match-days`, { label, date });
     return data;
@@ -13,8 +14,8 @@ export const matchDaysService = {
   },
 
   getActive: async (groupId: string): Promise<MatchDay | null> => {
-    const { data } = await api.get<MatchDay>(`/groups/${groupId}/match-days/active`);
-    return data;
+    const { data } = await api.get<MatchDay | ''>(`/groups/${groupId}/match-days/active`);
+    return data || null;
   },
 
   getOne: async (groupId: string, matchDayId: string): Promise<MatchDay> => {

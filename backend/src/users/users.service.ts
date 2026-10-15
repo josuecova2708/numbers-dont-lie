@@ -52,13 +52,15 @@ export class UsersService {
         ownGoals: true,
         ballsOut: true,
       },
-      _count: {
-        _all: true,
-      }
+    });
+    // Una jornada cuenta como un partido aunque tenga fila TEAM y OTHER
+    const matchDays = await this.prisma.playerMatchStats.groupBy({
+      by: ['matchDayId'],
+      where: { playerId: userId },
     });
 
     return {
-      matchesPlayed: stats._count._all,
+      matchesPlayed: matchDays.length,
       goals: stats._sum.goals || 0,
       assists: stats._sum.assists || 0,
       missedGoals: stats._sum.missedGoals || 0,

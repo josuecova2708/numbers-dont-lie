@@ -14,24 +14,29 @@ App web mobile-first para gestionar estadísticas de partidos de fútbol (futsal
 ## 🛠️ Ejecución Local
 
 ### 1. Requisitos
+
 - Node.js >= 20
 - npm >= 10
 
 ### 2. Backend
+
 ```bash
 cd backend
 npm install
 # Asegúrate de tener .env configurado con DATABASE_URL y JWT_SECRET
 npm run start:dev
 ```
+
 API corriendo en `http://localhost:3000/api`.
 
 ### 3. Frontend
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
+
 Frontend corriendo en `http://localhost:5173`.
 
 ---
@@ -45,6 +50,7 @@ docker compose up --build -d
 ```
 
 ### Variables de entorno necesarias en el Backend:
+
 - `DATABASE_URL`: URL de conexión a PostgreSQL
 - `JWT_SECRET`: Llave secreta para firmar tokens JWT
 - `JWT_EXPIRES_IN`: Tiempo de expiración (ej: `7d`)

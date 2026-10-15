@@ -5,6 +5,16 @@ import { useNavigate } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
 import api from '../services/api';
 import { Camera } from 'lucide-react';
+import { STAT_META } from '../constants/stats';
+import type { StatField } from '../constants/stats';
+
+const PROFILE_ROWS: { field: StatField; color: string }[] = [
+  { field: 'goals', color: 'text-green-400' },
+  { field: 'assists', color: 'text-blue-400' },
+  { field: 'missedGoals', color: 'text-red-400' },
+  { field: 'ownGoals', color: 'text-orange-400' },
+  { field: 'ballsOut', color: 'text-purple-400' },
+];
 
 export function ProfilePage() {
   const { user, logout } = useAuth();
@@ -109,26 +119,14 @@ export function ProfilePage() {
       ) : stats ? (
         <Card className="mb-8 p-0 overflow-hidden">
           <div className="divide-y divide-[#22252F]">
-            <div className="flex justify-between items-center p-4">
-              <span className="text-gray-300 font-medium">Goles</span>
-              <span className="text-xl font-bold text-green-400">{stats.goals}</span>
-            </div>
-            <div className="flex justify-between items-center p-4">
-              <span className="text-gray-300 font-medium">Asistencias</span>
-              <span className="text-xl font-bold text-blue-400">{stats.assists}</span>
-            </div>
-            <div className="flex justify-between items-center p-4">
-              <span className="text-gray-300 font-medium">Goles Fallados</span>
-              <span className="text-xl font-bold text-red-400">{stats.missedGoals}</span>
-            </div>
-            <div className="flex justify-between items-center p-4">
-              <span className="text-gray-300 font-medium">Balones Afuera</span>
-              <span className="text-xl font-bold text-purple-400">{stats.ballsOut}</span>
-            </div>
-            <div className="flex justify-between items-center p-4">
-              <span className="text-gray-300 font-medium">Autogoles</span>
-              <span className="text-xl font-bold text-yellow-400">{stats.ownGoals}</span>
-            </div>
+            {PROFILE_ROWS.map(({ field, color }) => (
+              <div key={field} className="flex justify-between items-center p-4">
+                <span className="text-gray-300 font-medium">
+                  {STAT_META[field].emoji} {STAT_META[field].label}
+                </span>
+                <span className={`text-xl font-bold ${color}`}>{stats[field]}</span>
+              </div>
+            ))}
             <div className="flex justify-between items-center p-4 bg-[#22252F] bg-opacity-30">
               <span className="text-gray-300 font-medium">Partidos Jugados</span>
               <span className="text-xl font-bold text-white">{stats.matchesPlayed}</span>
